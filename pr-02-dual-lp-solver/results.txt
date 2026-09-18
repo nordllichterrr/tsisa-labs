@@ -1,0 +1,6 @@
+Primal: [x1=6.894737, x2=4.526316, x3=0.000000] obj=38.789474
+Dual:   [y1=0.894737, y2=0.000000, y3=0.000000, y4=0.421053] obj=38.789474
+Resource 1: slack=-0.000000 dual=0.894737 binding=True
+Resource 2: slack=12.684211 dual=0.000000 binding=False
+Resource 3: slack=7.473684 dual=0.000000 binding=False
+Resource 4: slack=0.000000 dual=0.421053 binding=True
