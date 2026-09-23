@@ -1,8 +1,8 @@
-venv/
-.venv/
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
 .DS_Store
 .idea/
 .vscode/
-*.save
+*.egg-info/
