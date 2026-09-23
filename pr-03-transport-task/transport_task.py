@@ -1,5 +1,4 @@
 """Практическая работа №3. Вариант 15 (картофель)."""
-
 from __future__ import annotations
 
 import logging
