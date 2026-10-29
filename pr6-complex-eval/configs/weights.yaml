@@ -1,0 +1,17 @@
+criteria:
+  - {code: K1, name: "Соответствие VARK", direction: max}
+  - {code: K2, name: "Соответствие цели", direction: max}
+  - {code: K3, name: "Новизна издания", direction: min}
+  - {code: K4, name: "Соответствие ФГОС", direction: max}
+  - {code: K5, name: "Трудозатраты", direction: min}
+
+experts:
+  - name: "Студент"
+    role: student
+    weights: [0.30, 0.25, 0.10, 0.10, 0.25]
+  - name: "Преподаватель/Методист"
+    role: teacher
+    weights: [0.15, 0.20, 0.20, 0.30, 0.15]
+
+alternatives: []
+alpha: 0.5

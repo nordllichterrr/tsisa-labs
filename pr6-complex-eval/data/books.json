@@ -1,0 +1,14 @@
+{
+  "books": [
+    {"code": "B1", "title": "Python для анализа данных", "author": "Уэс Маккинни",
+     "year": 2023, "book_type": "учебник", "scores": [0.82, 0.91, 2, 0.95, 4.2]},
+    {"code": "B2", "title": "Python Crash Course", "author": "Эрик Мэтиз",
+     "year": 2024, "book_type": "практикум", "scores": [0.65, 0.78, 1, 0.80, 3.1]},
+    {"code": "B3", "title": "Автоматизация рутинных задач", "author": "Эл Свейгарт",
+     "year": 2022, "book_type": "практикум", "scores": [0.74, 0.85, 3, 0.70, 2.8]},
+    {"code": "B4", "title": "Data Science с нуля", "author": "Джоэл Грас",
+     "year": 2021, "book_type": "учебник", "scores": [0.88, 0.62, 4, 0.85, 5.5]},
+    {"code": "B5", "title": "Python: создание приложений", "author": "Марк Лутц",
+     "year": 2020, "book_type": "монография", "scores": [0.55, 0.70, 5, 0.60, 6.8]}
+  ]
+}

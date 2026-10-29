@@ -1,4 +1,21 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .venv/
-report.json
+venv/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Legacy
+_legacy/
