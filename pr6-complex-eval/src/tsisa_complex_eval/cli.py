@@ -39,6 +39,7 @@ def _serialize(result, config) -> dict:
         "v_expert_avg": result.v_expert_avg.round(4).tolist(),
         "z_spread_weights": result.z_spread_weights.round(4).tolist(),
         "w_combined": result.w_combined.round(4).tolist(),
+        "weighted_matrix": result.weighted.round(4).tolist(),
         "totals": result.totals.round(4).tolist(),
         "ranking": [
             {"alternative": a, "score": round(s, 4)}
@@ -98,7 +99,7 @@ def main(argv=None) -> int:
     _print_report(result, config)
 
     if args.sensitivity:
-        print("\nSensitivity analysis по alpha:")
+        print("\nАнализ чувствительности по alpha:")
         for row in sensitivity_analysis(matrix, config):
             print(f"  alpha={row['alpha']:.1f} -> winner={row['winner']}")
 
