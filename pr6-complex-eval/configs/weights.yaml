@@ -8,10 +8,10 @@ criteria:
 experts:
   - name: "Студент"
     role: student
-    weights: [0.30, 0.25, 0.10, 0.10, 0.25]
+    weights: [0.2703, 0.1892, 0.1351, 0.1351, 0.2703]
   - name: "Преподаватель/Методист"
     role: teacher
-    weights: [0.15, 0.20, 0.20, 0.30, 0.15]
+    weights: [0.1316, 0.2368, 0.2368, 0.2632, 0.1316]
 
 alternatives: []
 alpha: 0.5

@@ -37,6 +37,7 @@ def _serialize(result, config) -> dict:
         "alpha": config.alpha,
         "normalized": result.normalized.round(4).tolist(),
         "v_expert_avg": result.v_expert_avg.round(4).tolist(),
+        "r_spread": result.r_spread.round(4).tolist(),
         "z_spread_weights": result.z_spread_weights.round(4).tolist(),
         "w_combined": result.w_combined.round(4).tolist(),
         "weighted_matrix": result.weighted.round(4).tolist(),
