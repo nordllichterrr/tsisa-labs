@@ -87,6 +87,12 @@ def process_student(conn, student, allowed, crit, weights, r_min, lo, hi, max_lo
         m = build_pairwise(scores[:, i].tolist())
         pv, _ = priority_vector(m)
         local[c['criterion_id']] = pv
+        
+        for b_idx, b_item in enumerate(allowed):
+            conn.execute(
+                "INSERT INTO local_priorities (student_id, criterion_id, book_id, priority) VALUES (?, ?, ?, ?)",
+                (student['student_id'], c['criterion_id'], b_item['book_id'], float(pv[b_idx]))
+            )
 
     local_matrix = np.column_stack([local[c['criterion_id']] for c in crit])
     glob = local_matrix @ weights
@@ -120,11 +126,30 @@ def main() -> None:
             FROM books b
             LEFT JOIN book_formats bf ON bf.book_id = b.book_id
             LEFT JOIN formats f ON f.format_id = bf.format_id
+            WHERE b.discipline_id = 1
             GROUP BY b.book_id
         """).fetchall()
+        
         allowed = [b for b in books
                    if b['ebs'] == 1 and b['book_type'] in ('учебник', 'практикум')]
         crit = conn.execute('SELECT * FROM criteria ORDER BY criterion_id').fetchall()
+        
+        # Считаем Q2 (веса критериев) и сохраняем в БД
+        conn.execute('DELETE FROM criteria_weights')
+        criteria_matrix = np.array([
+            [1,    3,    5,    5,    7],
+            [1/3,  1,    3,    3,    5],
+            [1/5,  1/3,  1,    1,    3],
+            [1/5,  1/3,  1,    1,    3],
+            [1/7,  1/5,  1/3,  1/3,  1]
+        ])
+        q2_weights, _ = priority_vector(criteria_matrix)
+        for i, c in enumerate(crit):
+            conn.execute(
+                "INSERT INTO criteria_weights (criterion_id, q2_weight) VALUES (?, ?)",
+                (c['criterion_id'], float(q2_weights[i]))
+            )
+
         weights = np.array([c['weight'] for c in crit])
         r_min = conn.execute(
             "SELECT value FROM params WHERE param_key='R_min'"
@@ -139,6 +164,7 @@ def main() -> None:
         print(f'Допустимых книг: {len(allowed)} ({[b["book_id"] for b in allowed]})')
 
         conn.execute('DELETE FROM recommendations')
+        conn.execute('DELETE FROM local_priorities')
         total = 0
         for s in students:
             rows = process_student(conn, s, allowed, crit, weights, r_min, lo, hi, max_load)
@@ -151,6 +177,8 @@ def main() -> None:
         conn.commit()
 
         print(f'Записано рекомендаций: {total}')
+        print(f'Записано локальных приоритетов: {conn.execute("SELECT COUNT(*) FROM local_priorities").fetchone()[0]}')
+        print(f'Записано весов критериев: {conn.execute("SELECT COUNT(*) FROM criteria_weights").fetchone()[0]}')
 
         print('\nТоп-1 для первых 10 студентов:')
         for s in students[:10]:
@@ -169,12 +197,6 @@ def main() -> None:
             GROUP BY book_id ORDER BY n DESC
         """):
             print(f'  {row[0]}: {row[1]}')
-
-        print('\nСредний приоритет топ-1:')
-        avg = conn.execute(
-            'SELECT AVG(global_priority) FROM recommendations WHERE rank=1'
-        ).fetchone()[0]
-        print(f'  {avg:.4f}')
     finally:
         conn.close()
 

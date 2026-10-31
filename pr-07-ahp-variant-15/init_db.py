@@ -7,6 +7,8 @@ RNG = random.Random(42)
 N_STUDENTS = 150
 
 SCHEMA = """
+DROP TABLE IF EXISTS criteria_weights;
+DROP TABLE IF EXISTS local_priorities;
 DROP TABLE IF EXISTS precedents;
 DROP TABLE IF EXISTS teacher_decisions;
 DROP TABLE IF EXISTS evaluations;
@@ -68,6 +70,11 @@ CREATE TABLE criteria (
     weight       REAL NOT NULL
 );
 
+CREATE TABLE criteria_weights (
+    criterion_id TEXT PRIMARY KEY,
+    q2_weight    REAL NOT NULL
+);
+
 CREATE TABLE recommendations (
     recommendation_id INTEGER PRIMARY KEY AUTOINCREMENT,
     book_id         TEXT NOT NULL REFERENCES books(book_id),
@@ -76,6 +83,14 @@ CREATE TABLE recommendations (
     global_priority REAL NOT NULL,
     rank            INTEGER NOT NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE local_priorities (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id   INTEGER NOT NULL,
+    criterion_id TEXT NOT NULL,
+    book_id      TEXT NOT NULL,
+    priority     REAL NOT NULL
 );
 
 CREATE TABLE evaluations (
@@ -124,6 +139,7 @@ CREATE TABLE params (
 CREATE INDEX idx_eval_student ON evaluations(student_id);
 CREATE INDEX idx_eval_book ON evaluations(book_id);
 CREATE INDEX idx_rec_student ON recommendations(student_id);
+CREATE INDEX idx_local_student ON local_priorities(student_id);
 """
 
 DISCIPLINES = [
