@@ -134,7 +134,6 @@ def main() -> None:
                    if b['ebs'] == 1 and b['book_type'] in ('учебник', 'практикум')]
         crit = conn.execute('SELECT * FROM criteria ORDER BY criterion_id').fetchall()
         
-        # Считаем Q2 (веса критериев) и сохраняем в БД
         conn.execute('DELETE FROM criteria_weights')
         criteria_matrix = np.array([
             [1,    3,    5,    5,    7],
@@ -179,6 +178,14 @@ def main() -> None:
         print(f'Записано рекомендаций: {total}')
         print(f'Записано локальных приоритетов: {conn.execute("SELECT COUNT(*) FROM local_priorities").fetchone()[0]}')
         print(f'Записано весов критериев: {conn.execute("SELECT COUNT(*) FROM criteria_weights").fetchone()[0]}')
+
+        print('\nВеса критериев (q2):')
+        for row in conn.execute("SELECT criterion_id, q2_weight FROM criteria_weights ORDER BY criterion_id"):
+            print(f'  {row[0]}: {row[1]:.4f}')
+
+        print('\nЛокальные приоритеты (для студента 1):')
+        for row in conn.execute("SELECT criterion_id, book_id, priority FROM local_priorities WHERE student_id=1 ORDER BY criterion_id, book_id"):
+            print(f'  {row[0]} | {row[1]} | {row[2]:.4f}')
 
         print('\nТоп-1 для первых 10 студентов:')
         for s in students[:10]:
