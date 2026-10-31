@@ -13,3 +13,4 @@
 
 - [lesson-tasks-071026](./lesson-tasks-071026) — практические задачи по оптимизации и теории графов (05.10.26)
 - [PR-06 — complex-eval](./pr6-complex-eval) — метод комплексной оценки (VARK + LLM)
+- [PR-07 — ahp-variant-15](./pr-07-ahp-variant-15) — метод анализа иерархий (VARK + LLM, вариант 15)
