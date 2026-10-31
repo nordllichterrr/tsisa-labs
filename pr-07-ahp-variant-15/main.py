@@ -46,27 +46,8 @@ def priority_vector(matrix: np.ndarray) -> Tuple[np.ndarray, float]:
     return w, cr
 
 
-def load_all(conn: sqlite3.Connection):
-    conn.row_factory = sqlite3.Row
-    student = conn.execute('SELECT * FROM students LIMIT 1').fetchone()
-    books = conn.execute("""
-        SELECT b.*, GROUP_CONCAT(f.name, '|') AS formats
-        FROM books b
-        LEFT JOIN book_formats bf ON bf.book_id = b.book_id
-        LEFT JOIN formats f ON f.format_id = bf.format_id
-        GROUP BY b.book_id
-    """).fetchall()
-    crit = conn.execute('SELECT * FROM criteria ORDER BY criterion_id').fetchall()
-    return student, books, crit
-
-
-def filter_books(books):
-    return [b for b in books if b['ebs'] == 1 and b['book_type'] in ('учебник', 'практикум')]
-
-
 def score_k1(formats: str, dominant: str) -> float:
-    fmts = set((formats or '').split('|'))
-    return 1.0 if dominant in fmts else 0.2
+    return 1.0 if dominant in set((formats or '').split('|')) else 0.2
 
 
 def score_k2(has_practice: int, goal: str) -> float:
@@ -89,73 +70,111 @@ def score_k5(pages: int, complexity: float, max_load: float) -> float:
     return 1.0 - (pages * complexity / max_load) * 0.9
 
 
+def process_student(conn, student, allowed, crit, weights, r_min, lo, hi, max_load):
+    scores = np.array([
+        [
+            score_k1(b['formats'], student['vark_dominant']),
+            score_k2(b['has_practice'], student['goal']),
+            score_k3(b['year'], lo, hi),
+            score_k4(b),
+            score_k5(b['pages'], b['complexity'], max_load),
+        ]
+        for b in allowed
+    ])
+
+    local = {}
+    for i, c in enumerate(crit):
+        m = build_pairwise(scores[:, i].tolist())
+        pv, _ = priority_vector(m)
+        local[c['criterion_id']] = pv
+
+    local_matrix = np.column_stack([local[c['criterion_id']] for c in crit])
+    glob = local_matrix @ weights
+
+    order = np.argsort(-glob)
+    rank = 1
+    rows = []
+    for idx in order:
+        b = allowed[idx]
+        if b['rating'] < r_min:
+            continue
+        rows.append((
+            b['book_id'], student['student_id'],
+            float(scores[idx, 0]), float(scores[idx, 1]), float(scores[idx, 2]),
+            float(scores[idx, 3]), float(scores[idx, 4]),
+            float(glob[idx]), rank,
+        ))
+        rank += 1
+    return rows
+
+
 def main() -> None:
     if not DB_PATH.exists():
         raise SystemExit(f'Нет базы {DB_PATH}. Сначала запусти init_db.py')
+
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     try:
-        student, books, crit = load_all(conn)
-        print(f'Студент: {student["full_name"]}, курс {student["course"]}, '
-              f'VARK={student["vark_dominant"]}, цель={student["goal"]}')
-        print(f'Книг в БД: {len(books)}')
-
-        allowed = filter_books(books)
-        print(f'Прошли G1–G4: {[b["book_id"] for b in allowed]}')
-
-        if not allowed:
-            raise SystemExit('Нет допустимых книг — ослабить ограничения.')
+        books = conn.execute("""
+            SELECT b.*, GROUP_CONCAT(f.name, '|') AS formats
+            FROM books b
+            LEFT JOIN book_formats bf ON bf.book_id = b.book_id
+            LEFT JOIN formats f ON f.format_id = bf.format_id
+            GROUP BY b.book_id
+        """).fetchall()
+        allowed = [b for b in books
+                   if b['ebs'] == 1 and b['book_type'] in ('учебник', 'практикум')]
+        crit = conn.execute('SELECT * FROM criteria ORDER BY criterion_id').fetchall()
+        weights = np.array([c['weight'] for c in crit])
+        r_min = conn.execute(
+            "SELECT value FROM params WHERE param_key='R_min'"
+        ).fetchone()[0]
 
         lo = min(b['year'] for b in allowed)
         hi = max(b['year'] for b in allowed)
         max_load = max(b['pages'] * b['complexity'] for b in allowed)
 
-        scores = []
-        for b in allowed:
-            scores.append([
-                score_k1(b['formats'], student['vark_dominant']),
-                score_k2(b['has_practice'], student['goal']),
-                score_k3(b['year'], lo, hi),
-                score_k4(b),
-                score_k5(b['pages'], b['complexity'], max_load),
-            ])
-        scores = np.array(scores)
-
-        weights = np.array([c['weight'] for c in crit])
-        local = {}
-        print('\nЛокальные приоритеты по критериям:')
-        for i, c in enumerate(crit):
-            m = build_pairwise(scores[:, i].tolist())
-            pv, cr = priority_vector(m)
-            local[c['criterion_id']] = pv
-            print(f'  {c["criterion_id"]} {c["name"]} (w={c["weight"]}): '
-                  f'{np.round(pv, 4)}  CR={cr:.4f}')
-
-        local_matrix = np.column_stack([local[c['criterion_id']] for c in crit])
-        glob = local_matrix @ weights
-
-        print('\nГлобальные приоритеты:')
-        order = np.argsort(-glob)
-        for rank, idx in enumerate(order, start=1):
-            b = allowed[idx]
-            print(f'  #{rank} {b["book_id"]} {b["title"]}: {glob[idx]:.4f}')
+        students = conn.execute('SELECT * FROM students ORDER BY student_id').fetchall()
+        print(f'Студентов: {len(students)}')
+        print(f'Допустимых книг: {len(allowed)} ({[b["book_id"] for b in allowed]})')
 
         conn.execute('DELETE FROM recommendations')
-        for rank, idx in enumerate(order, start=1):
-            b = allowed[idx]
-            conn.execute("""
+        total = 0
+        for s in students:
+            rows = process_student(conn, s, allowed, crit, weights, r_min, lo, hi, max_load)
+            conn.executemany("""
                 INSERT INTO recommendations
-                (book_id, k1, k2, k3, k4, k5, global_priority, rank)
-                VALUES (?,?,?,?,?,?,?,?)
-            """, (
-                b['book_id'],
-                float(scores[idx, 0]), float(scores[idx, 1]), float(scores[idx, 2]),
-                float(scores[idx, 3]), float(scores[idx, 4]),
-                float(glob[idx]), rank,
-            ))
+                (book_id, student_id, k1, k2, k3, k4, k5, global_priority, rank)
+                VALUES (?,?,?,?,?,?,?,?,?)
+            """, rows)
+            total += len(rows)
         conn.commit()
-        print(f'\nЗаписано {len(allowed)} рекомендаций в БД.')
-        best = allowed[int(order[0])]
-        print(f'Лучшая: {best["book_id"]} — {best["title"]}')
+
+        print(f'Записано рекомендаций: {total}')
+
+        print('\nТоп-1 для первых 10 студентов:')
+        for s in students[:10]:
+            best = conn.execute("""
+                SELECT book_id, global_priority FROM recommendations
+                WHERE student_id=? ORDER BY rank LIMIT 1
+            """, (s['student_id'],)).fetchone()
+            print(f'  #{s["student_id"]} {s["full_name"]} '
+                  f'({s["vark_dominant"]}/{s["goal"]}) -> '
+                  f'{best[0]} ({best[1]:.4f})')
+
+        print('\nПопулярность книг (сколько раз попали в топ-1):')
+        for row in conn.execute("""
+            SELECT book_id, COUNT(*) AS n
+            FROM recommendations WHERE rank=1
+            GROUP BY book_id ORDER BY n DESC
+        """):
+            print(f'  {row[0]}: {row[1]}')
+
+        print('\nСредний приоритет топ-1:')
+        avg = conn.execute(
+            'SELECT AVG(global_priority) FROM recommendations WHERE rank=1'
+        ).fetchone()[0]
+        print(f'  {avg:.4f}')
     finally:
         conn.close()
 
